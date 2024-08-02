@@ -1,8 +1,5 @@
-// we will start writing code here
-
-
-#include <ESP8266WiFi.h>
-#include <ESP8266WebServer.h>
+#include <WiFi.h>
+#include <WebServer.h>
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_MPU6050.h>
@@ -10,14 +7,14 @@
 const char* ssid = "your_SSID";
 const char* password = "your_PASSWORD";
 
-ESP8266WebServer server(80);
+WebServer server(80);
 Adafruit_MPU6050 mpu;
 
 // Motor pins
-#define IN1 D1
-#define IN2 D2
-#define IN3 D3
-#define IN4 D4
+#define IN1 5
+#define IN2 4
+#define IN3 18
+#define IN4 19
 
 void setup() {
   Serial.begin(115200);
