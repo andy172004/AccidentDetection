@@ -4,8 +4,8 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_MPU6050.h>
 
-const char* ssid = "your_SSID";
-const char* password = "your_PASSWORD";
+const char* ssid = "ESP32_AP";
+const char* password = "12345678";
 
 WebServer server(80);
 Adafruit_MPU6050 mpu;
@@ -18,17 +18,13 @@ Adafruit_MPU6050 mpu;
 
 void setup() {
   Serial.begin(115200);
-  WiFi.begin(ssid, password);
-
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-
-  Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.println(WiFi.localIP());
-
+  
+  // Set up Access Point
+  WiFi.softAP(ssid, password);
+  Serial.println("Access Point started");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.softAPIP());
+  
   if (!mpu.begin()) {
     Serial.println("Failed to find MPU6050 chip");
     while (1) {
@@ -67,20 +63,40 @@ void handleRoot() {
   String html = "<html>\
   <head>\
   <title>Car Bot</title>\
+  <style>\
+    body { font-family: Arial, sans-serif; background-color: #f4f4f4; text-align: center; padding: 50px; }\
+    h1 { color: #333; }\
+    button {\
+      padding: 15px 25px;\
+      font-size: 24px;\
+      margin: 10px;\
+      cursor: pointer;\
+      border-radius: 5px;\
+      border: none;\
+      color: #fff;\
+    }\
+    button#forward { background-color: #4CAF50; }\
+    button#backward { background-color: #f44336; }\
+    button#stop { background-color: #555; }\
+    #gyro { font-size: 20px; }\
+  </style>\
   </head>\
   <body>\
   <h1>Car Bot Control</h1>\
-  <button onclick=\"location.href='/forward'\">Move Forward</button>\
-  <button onclick=\"location.href='/backward'\">Move Backward</button>\
-  <button onclick=\"location.href='/stop'\">Stop</button>\
+  <button id='forward' onclick=\"sendData('/forward')\">Move Forward</button>\
+  <button id='backward' onclick=\"sendData('/backward')\">Move Backward</button>\
+  <button id='stop' onclick=\"sendData('/stop')\">Stop</button>\
   <h2>Gyro Readings</h2>\
   <p id=\"gyro\">Loading...</p>\
   <script>\
-  setInterval(function() {\
-    fetch('/gyro').then(response => response.text()).then(data => {\
-      document.getElementById('gyro').innerHTML = data;\
-    });\
-  }, 1000);\
+    function sendData(url) {\
+      fetch(url).then(response => response.text()).then(data => console.log(data));\
+    }\
+    setInterval(function() {\
+      fetch('/gyro').then(response => response.text()).then(data => {\
+        document.getElementById('gyro').innerHTML = data;\
+      });\
+    }, 1000);\
   </script>\
   </body>\
   </html>";
@@ -92,7 +108,8 @@ void handleForward() {
   digitalWrite(IN2, LOW);
   digitalWrite(IN3, HIGH);
   digitalWrite(IN4, LOW);
-  server.send(200, "text/html", "Moving Forward... <a href='/'>Go Back</a>");
+  Serial.println("Moving Forward");
+  server.send(200, "text/plain", "Moving Forward");
 }
 
 void handleBackward() {
@@ -100,7 +117,8 @@ void handleBackward() {
   digitalWrite(IN2, HIGH);
   digitalWrite(IN3, LOW);
   digitalWrite(IN4, HIGH);
-  server.send(200, "text/html", "Moving Backward... <a href='/'>Go Back</a>");
+  Serial.println("Moving Backward");
+  server.send(200, "text/plain", "Moving Backward");
 }
 
 void handleStop() {
@@ -108,12 +126,14 @@ void handleStop() {
   digitalWrite(IN2, LOW);
   digitalWrite(IN3, LOW);
   digitalWrite(IN4, LOW);
-  server.send(200, "text/html", "Stopped... <a href='/'>Go Back</a>");
+  Serial.println("Stopped");
+  server.send(200, "text/plain", "Stopped");
 }
 
 void handleGyro() {
   sensors_event_t a, g, temp;
   mpu.getEvent(&a, &g, &temp);
   String data = "Gyro X: " + String(g.gyro.x) + ", Gyro Y: " + String(g.gyro.y) + ", Gyro Z: " + String(g.gyro.z);
+  Serial.println(data);
   server.send(200, "text/plain", data);
 }
