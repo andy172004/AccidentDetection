@@ -5,16 +5,14 @@
 
 #include <WiFi.h>
 #include <WiFiClient.h>
-#include <WebServer.h>
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_MPU6050.h>
+#include <BlynkSimpleEsp32.h>
 
-const char* ssid = "ESP32_AP";
-const char* password = "12345678";
-char auth[] = "BLYNK_TEMPLATE_AUTH_TOKEN";  // Replace with your Blynk Auth Token
+const char* ssid = "Paneer";  // Replace with your network SSID
+const char* password = "Jivyantra";  // Replace with your network password
 
-WebServer server(80);
 Adafruit_MPU6050 mpu;
 
 // Motor pins
@@ -23,19 +21,28 @@ Adafruit_MPU6050 mpu;
 #define IN3 18
 #define IN4 19
 
-
 // Vibration sensor pin
 #define VIBRATION_PIN 2
-int vibration;
+
+BlynkTimer timer;
+
 void setup() {
   Serial.begin(115200);
-  
-  // Set up Access Point
-  WiFi.softAP(ssid, password);
-  Serial.println("Access Point started");
+
+  // Connect to local WiFi network
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting to ");
+  Serial.print(ssid);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println(" connected");
   Serial.print("IP address: ");
-  Serial.println(WiFi.softAPIP());
-  
+  Serial.println(WiFi.localIP());
+
+  Blynk.begin(BLYNK_TEMPLATE_AUTH_TOKEN, ssid, password);
+
   if (!mpu.begin()) {
     Serial.println("Failed to find MPU6050 chip");
     while (1) {
@@ -47,14 +54,6 @@ void setup() {
   mpu.setGyroRange(MPU6050_RANGE_500_DEG);
   mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
 
-  server.on("/", handleRoot);
-  server.on("/forward", handleForward);
-  server.on("/backward", handleBackward);
-  server.on("/stop", handleStop);
-  server.on("/gyro", handleGyro);
-
-  server.begin();
-
   pinMode(IN1, OUTPUT);
   pinMode(IN2, OUTPUT);
   pinMode(IN3, OUTPUT);
@@ -64,54 +63,28 @@ void setup() {
   digitalWrite(IN2, LOW);
   digitalWrite(IN3, LOW);
   digitalWrite(IN4, LOW);
+
+  pinMode(VIBRATION_PIN, INPUT);
+
+  Blynk.virtualWrite(V7, "Ready");
+
+  timer.setInterval(1000L, sendSensorDataToBlynk);
 }
 
 void loop() {
-  server.handleClient();
+  Blynk.run();
+  timer.run();
 }
 
-void handleRoot() {
-  String html = "<html>\
-  <head>\
-  <title>Car Bot</title>\
-  <style>\
-    body { font-family: Arial, sans-serif; background-color: #f4f4f4; text-align: center; padding: 50px; }\
-    h1 { color: #333; }\
-    button {\
-      padding: 15px 25px;\
-      font-size: 24px;\
-      margin: 10px;\
-      cursor: pointer;\
-      border-radius: 5px;\
-      border: none;\
-      color: #fff;\
-    }\
-    button#forward { background-color: #4CAF50; }\
-    button#backward { background-color: #f44336; }\
-    button#stop { background-color: #555; }\
-    #gyro { font-size: 20px; }\
-  </style>\
-  </head>\
-  <body>\
-  <h1>Car Bot Control</h1>\
-  <button id='forward' onclick=\"sendData('/forward')\">Move Forward</button>\
-  <button id='backward' onclick=\"sendData('/backward')\">Move Backward</button>\
-  <button id='stop' onclick=\"sendData('/stop')\">Stop</button>\
-  <h2>Gyro Readings</h2>\
-  <p id=\"gyro\">Loading...</p>\
-  <script>\
-    function sendData(url) {\
-      fetch(url).then(response => response.text()).then(data => console.log(data));\
-    }\
-    setInterval(function() {\
-      fetch('/gyro').then(response => response.text()).then(data => {\
-        document.getElementById('gyro').innerHTML = data;\
-      });\
-    }, 1000);\
-  </script>\
-  </body>\
-  </html>";
-  server.send(200, "text/html", html);
+BLYNK_WRITE(V8) {
+  int value = param.asInt();
+  if (value == 1) {
+    handleForward();
+  } else if (value == 2) {
+    handleBackward();
+  } else if (value == 3) {
+    handleStop();
+  }
 }
 
 void handleForward() {
@@ -120,7 +93,6 @@ void handleForward() {
   digitalWrite(IN3, HIGH);
   digitalWrite(IN4, LOW);
   Serial.println("Moving Forward");
-  server.send(200, "text/plain", "Moving Forward");
 }
 
 void handleBackward() {
@@ -129,7 +101,6 @@ void handleBackward() {
   digitalWrite(IN3, LOW);
   digitalWrite(IN4, HIGH);
   Serial.println("Moving Backward");
-  server.send(200, "text/plain", "Moving Backward");
 }
 
 void handleStop() {
@@ -138,27 +109,23 @@ void handleStop() {
   digitalWrite(IN3, LOW);
   digitalWrite(IN4, LOW);
   Serial.println("Stopped");
-  server.send(200, "text/plain", "Stopped");
 }
 
-void handleSensors() {
-  sensors_event_t a, g, temp;
-  mpu.getEvent(&a, &g, &temp);
-  vibration = digitalRead(VIBRATION_PIN);
-  String data = "Gyro X: " + String(g.gyro.x) + ", Gyro Y: " + String(g.gyro.y) + ", Gyro Z: " + String(g.gyro.z) + ", Vibration: " + (vibration == HIGH ? "Detected" : "Not Detected");
-  Serial.println(data);
-  server.send(200, "text/plain", data);
-}
 void sendSensorDataToBlynk() {
   sensors_event_t a, g, temp;
   mpu.getEvent(&a, &g, &temp);
-  
+
   Blynk.virtualWrite(V0, g.gyro.x);
   Blynk.virtualWrite(V1, g.gyro.y);
   Blynk.virtualWrite(V2, g.gyro.z);
-  
+
   Blynk.virtualWrite(V3, a.acceleration.x);
   Blynk.virtualWrite(V4, a.acceleration.y);
   Blynk.virtualWrite(V5, a.acceleration.z);
+
+  int vibration = digitalRead(VIBRATION_PIN);
   Blynk.virtualWrite(V6, vibration);
+
+  String data = "Gyro X: " + String(g.gyro.x) + ", Gyro Y: " + String(g.gyro.y) + ", Gyro Z: " + String(g.gyro.z) + "Acceleration X: " + String(a.acceleration.x) + ", Acceleration Y: " + String(a.acceleration.y) + ", Acceleration Z: " + String(a.acceleration.z) + ", Vibration: " + (vibration == HIGH ? "Detected" : "Not Detected");
+  Serial.println(data);
 }
