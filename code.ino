@@ -12,6 +12,7 @@
 
 const char* ssid = "ESP32_AP";
 const char* password = "12345678";
+char auth[] = "BLYNK_TEMPLATE_AUTH_TOKEN";  // Replace with your Blynk Auth Token
 
 WebServer server(80);
 Adafruit_MPU6050 mpu;
@@ -22,6 +23,10 @@ Adafruit_MPU6050 mpu;
 #define IN3 18
 #define IN4 19
 
+
+// Vibration sensor pin
+#define VIBRATION_PIN 2
+int vibration;
 void setup() {
   Serial.begin(115200);
   
@@ -136,14 +141,14 @@ void handleStop() {
   server.send(200, "text/plain", "Stopped");
 }
 
-void handleGyro() {
+void handleSensors() {
   sensors_event_t a, g, temp;
   mpu.getEvent(&a, &g, &temp);
-  String data = "Gyro X: " + String(g.gyro.x) + ", Gyro Y: " + String(g.gyro.y) + ", Gyro Z: " + String(g.gyro.z);
+  vibration = digitalRead(VIBRATION_PIN);
+  String data = "Gyro X: " + String(g.gyro.x) + ", Gyro Y: " + String(g.gyro.y) + ", Gyro Z: " + String(g.gyro.z) + ", Vibration: " + (vibration == HIGH ? "Detected" : "Not Detected");
   Serial.println(data);
   server.send(200, "text/plain", data);
 }
-
 void sendSensorDataToBlynk() {
   sensors_event_t a, g, temp;
   mpu.getEvent(&a, &g, &temp);
@@ -155,4 +160,5 @@ void sendSensorDataToBlynk() {
   Blynk.virtualWrite(V3, a.acceleration.x);
   Blynk.virtualWrite(V4, a.acceleration.y);
   Blynk.virtualWrite(V5, a.acceleration.z);
+  Blynk.virtualWrite(V6, vibration);
 }
