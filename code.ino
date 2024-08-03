@@ -1,4 +1,10 @@
+#define BLYNK_TEMPLATE_ID "TMPL3LVghil_N"
+#define BLYNK_TEMPLATE_NAME "Car"
+#define BLYNK_TEMPLATE_AUTH_TOKEN "kKxBF0l9te9PBbFOs3pfOTdl5Z0lLOyL"
+#define BLYNK_PRINT Serial
+
 #include <WiFi.h>
+#include <WiFiClient.h>
 #include <WebServer.h>
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
@@ -136,4 +142,17 @@ void handleGyro() {
   String data = "Gyro X: " + String(g.gyro.x) + ", Gyro Y: " + String(g.gyro.y) + ", Gyro Z: " + String(g.gyro.z);
   Serial.println(data);
   server.send(200, "text/plain", data);
+}
+
+void sendSensorDataToBlynk() {
+  sensors_event_t a, g, temp;
+  mpu.getEvent(&a, &g, &temp);
+  
+  Blynk.virtualWrite(V0, g.gyro.x);
+  Blynk.virtualWrite(V1, g.gyro.y);
+  Blynk.virtualWrite(V2, g.gyro.z);
+  
+  Blynk.virtualWrite(V3, a.acceleration.x);
+  Blynk.virtualWrite(V4, a.acceleration.y);
+  Blynk.virtualWrite(V5, a.acceleration.z);
 }
